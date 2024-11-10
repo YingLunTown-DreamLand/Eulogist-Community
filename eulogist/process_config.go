@@ -11,12 +11,15 @@ import (
 
 // FileExist 检查 path 对应路径的文件是否存在。
 // 如果不存在，或该路径指向一个文件夹，则返回假，否则返回真
-func FileExist(path string) bool {
+func FileExist(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return false
+		return false, nil
 	}
-	return !fileInfo.IsDir()
+	if err != nil {
+		return false, fmt.Errorf("FileExist: %v", err)
+	}
+	return !fileInfo.IsDir(), nil
 }
 
 // WriteJsonFile 将 content 以 JSON
@@ -44,7 +47,12 @@ func WriteJsonFile(path string, content any) error {
 func ReadEulogistConfig() (*EulogistConfig, error) {
 	var cfg EulogistConfig
 
-	if !FileExist("eulogist_config.json") {
+	eulogistConfigExist, err := FileExist("eulogist_config.json")
+	if err != nil {
+		return nil, fmt.Errorf("ReadEulogistConfig: %v", err)
+	}
+
+	if !eulogistConfigExist {
 		config, err := GenerateEulogistConfig()
 		if err != nil {
 			return nil, fmt.Errorf("ReadEulogistConfig: %v", err)

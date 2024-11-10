@@ -2,10 +2,14 @@ package main
 
 import (
 	Eulogist "Eulogist/eulogist"
+	_ "embed"
 	"fmt"
 
 	"github.com/pterm/pterm"
 )
+
+//go:embed version
+var versionInfo []byte
 
 func main() {
 	pterm.Println(pterm.Yellow("" +
@@ -21,7 +25,7 @@ func main() {
 	pterm.DefaultBox.Println(
 		pterm.LightCyan("" +
 			"                    " +
-			"LICENSE | AGPL-v3.0" + "\n" +
+			pterm.Sprintf("Default - v%s", string(versionInfo)) + "\n" +
 			"https://github.com/YingLunTown-DreamLand/Eulogist-Community",
 		),
 	)

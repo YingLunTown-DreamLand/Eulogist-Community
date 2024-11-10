@@ -70,12 +70,20 @@ func Eulogist() error {
 		var skinIsSlim bool
 		var useAccountSkin bool
 		// 检查 Minecraft 客户端是否存在
-		if !FileExist(config.NEMCPath) {
+		nemcExist, err := FileExist(config.NEMCPath)
+		if err != nil {
+			return fmt.Errorf("Eulogist: %v", err)
+		}
+		if !nemcExist {
 			return fmt.Errorf("Eulogist: Client not found, maybe you did not download or the the path is incorrect")
 		}
 		// 取得皮肤数据
+		useCustomSkin, err := FileExist(config.SkinPath)
+		if err != nil {
+			return fmt.Errorf("Eulogist: %v", err)
+		}
 		playerSkin = server.PersistenceData.SkinData.NeteaseSkin
-		useAccountSkin = (!FileExist(config.SkinPath) && playerSkin != nil)
+		useAccountSkin = (!useCustomSkin && playerSkin != nil)
 		// 皮肤处理
 		if useAccountSkin {
 			// 生成皮肤文件

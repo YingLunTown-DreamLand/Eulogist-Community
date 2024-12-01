@@ -1,0 +1,42 @@
+name: Go Build and Release Windows Executable
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23.3'
+
+    - name: Install dependencies
+      run: go mod tidy
+
+    - name: Build Windows executable
+      run: |
+        GOOS=windows GOARCH=amd64 go build -v -o Eulogist.exe
+
+    - name: Provide release version
+      id: release_version
+      run: |
+        VERSION=$(cat version)
+        echo "release_version=$VERSION" >> $GITHUB_ENV
+        echo "::set-output name=release_version::$VERSION"
+
+    - name: Upload Windows executable to GitHub Release
+      uses: softprops/action-gh-release@v1  
+      with:
+        files: Eulogist.exe
+        tag_name: v${{ steps.release_version.outputs.release_version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

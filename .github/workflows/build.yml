@@ -1,42 +1,82 @@
-name: Go Build and Release Windows Executable
+name: Go Build and Release Executables
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - "main"
+      - "bedrock"
   pull_request:
-    branches: [ "main" ]
+    branches: 
+      - "main"
+      - "bedrock"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout code (main)
       uses: actions/checkout@v4
 
+    # Step 1: Build and release `main` branch Windows executable
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.23.3'
 
-    - name: Install dependencies
+    - name: Install dependencies (main)
       run: go mod tidy
 
-    - name: Build Windows executable
+    - name: Build Windows executable (main)
       run: |
-        GOOS=windows GOARCH=amd64 go build -v -o Eulogist.exe
+        GOOS=windows GOARCH=amd64 go build -v -o Eulogist-main-windows-x86_64.exe
 
-    - name: Provide release version
+    - name: Provide release version (main)
       id: release_version
       run: |
         VERSION=$(cat version)
         echo "release_version=$VERSION" >> $GITHUB_ENV
-        echo "::set-output name=release_version::$VERSION"
 
-    - name: Upload Windows executable to GitHub Release
-      uses: softprops/action-gh-release@v1  
+    # Step 2: Checkout bedrock branch and build multiple Linux executables (Termux)
+    - name: Checkout bedrock branch
+      run: |
+        git fetch origin bedrock
+        git checkout bedrock
+        git pull origin bedrock
+
+    - name: Install dependencies (bedrock)
+      run: go mod tidy
+
+    # Build for armv7 architecture (32-bit)
+    - name: Build armv7 Linux executable (bedrock)
+      run: |
+        GOOS=linux GOARCH=arm GOARM=7 go build -v -o Eulogist-bedrock-termux-armv7
+
+    # Build for arm64 architecture (64-bit)
+    - name: Build arm64 Linux executable (bedrock)
+      run: |
+        GOOS=linux GOARCH=arm64 go build -v -o Eulogist-bedrock-termux-arm64
+
+    # Build for x86_64 architecture (64-bit)
+    - name: Build x86_64 Linux executable (bedrock)
+      run: |
+        GOOS=linux GOARCH=amd64 go build -v -o Eulogist-bedrock-termux-x86_64
+
+    # Build for x86 architecture (32-bit)
+    - name: Build x86 Linux executable (bedrock)
+      run: |
+        GOOS=linux GOARCH=386 go build -v -o Eulogist-bedrock-termux-x86
+
+    # Step 3: Upload all executables to GitHub Release
+    - name: Upload executables to GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        files: Eulogist.exe
-        tag_name: v${{ steps.release_version.outputs.release_version }}
+        files: |
+          Eulogist-main-windows-x86_64.exe
+          Eulogist-bedrock-termux-armv7
+          Eulogist-bedrock-termux-arm64
+          Eulogist-bedrock-termux-x86_64
+          Eulogist-bedrock-termux-x86
+        tag_name: v${{ env.release_version }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

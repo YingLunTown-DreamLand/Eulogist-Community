@@ -1,0 +1,88 @@
+name: Go Build and Release Executables
+
+on:
+  push:
+    branches: 
+      - "main"
+      - "bedrock"
+    paths:
+      - "version"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23.3'
+
+    - name: Install dependencies
+      run: go mod tidy
+
+    - name: Cache NDK
+      id: cache-ndk
+      uses: actions/cache@v3
+      with:
+        key: android-ndk-r20b-cache
+        path: ~/android-ndk-r20b
+      
+    - name: Set up NDK
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r20b
+        add-to-path: false
+      
+    - name: Move NDK
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      run: mv ${{ steps.setup-ndk.outputs.ndk-path }} ${HOME}/android-ndk-r20b
+      
+    - name: Provide release version
+      id: release_version
+      run: |
+        VERSION=$(cat version)
+        echo "release_version=$VERSION" >> $GITHUB_ENV
+        echo "::set-output name=release_version::$VERSION"
+
+    - name: Build Windows executable
+      run: |
+        GOOS=windows GOARCH=amd64 go build -v -o Eulogist-main-windows-x86_64.exe
+
+    - name: Build Termux executables
+      run: |
+        git fetch origin bedrock
+        git checkout bedrock
+        git pull origin bedrock
+
+        # Enable CGO and set GOARCH for ARM architecture
+        export CGO_ENABLED=1
+
+        # ARMv7 architecture (32-bit)
+        CC=${HOME}/android-ndk-r20b/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi16-clang GOOS=android GOARCH=arm GOARM=7 go build -v -o Eulogist-bedrock-termux-armv7
+
+        # ARM64 architecture (64-bit)
+        CC=${HOME}/android-ndk-r20b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang GOOS=android GOARCH=arm64 go build -v -o Eulogist-bedrock-termux-arm64
+
+        # x86_64 architecture (64-bit)
+        CC=${HOME}/android-ndk-r20b/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang GOOS=android GOARCH=amd64 go build -v -o Eulogist-bedrock-termux-x86_64
+
+        # x86 architecture (32-bit)
+        CC=${HOME}/android-ndk-r20b/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang GOOS=android GOARCH=386 go build -v -o Eulogist-bedrock-termux-x86
+
+    - name: Upload executables to GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          Eulogist-main-windows-x86_64.exe
+          Eulogist-bedrock-termux-armv7
+          Eulogist-bedrock-termux-arm64
+          Eulogist-bedrock-termux-x86_64
+          Eulogist-bedrock-termux-x86
+        tag_name: v${{ steps.release_version.outputs.release_version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
